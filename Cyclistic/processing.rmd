@@ -10,15 +10,34 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Cyclistic
 
-This is an R markdown file I produced as part of my capstone project required for completing the Google Data Analytics course hosted on Coursera. It required I bring together and demonstrate many of the skills and ideas I learnt throughout the course.
+This is an R markdown file I produced as part of my capstone project required
+for completing the Google Data Analytics course hosted on Coursera. It required
+I bring together and demonstrate many of the skills and ideas I learnt
+throughout the course.
 
-While not the most beautiful diagrams you will see, I think I've got the hang of basic analysis and plotting. If this was a personal or work project I would have given each station a nice integer identifier, calculated a full set of various statistics about each, and possible stored the data in a database (probably SQLite to begin with) to better deal with the volume of data.
+While not the most beautiful diagrams you will see, I think I've got the hang
+of basic analysis and plotting. If this was a personal or work project I would
+have given each station a nice integer identifier, calculated a full set of
+various statistics about each, and possible stored the data in a database
+(probably SQLite to begin with) to better deal with the volume of data.
 
 ## Assignment
 
-In a nutshell, Cyclistic a made up bike hiring company operating in Chicago has determined that annual membership holders are more profitable than casually paying riders, those paying per trip or per day. They wish to convert more of these casual riders into annually paying members. In order to create an effective marketing campaign they require an understanding of their customer base including how casual riders differ in behaviour and usage of Cyclistic's bikes. They have tasked me with using their past years anonymised data on bicycle usage to garner insights and generate recommendations on how to proceed.
+In a nutshell, Cyclistic a made up bike hiring company operating in Chicago has
+determined that annual membership holders are more profitable than casually
+paying riders, those paying per trip or per day. They wish to convert more of
+these casual riders into annually paying members. In order to create an
+effective marketing campaign they require an understanding of their customer
+base including how casual riders differ in behaviour and usage of Cyclistic's
+bikes. They have tasked me with using their past years anonymised data on
+bicycle usage to garner insights and generate recommendations on how to proceed.
 
-The 2021 data is actually real data made publically available by a bike share called Divvy. It can be accessed herehttps://divvy-tripdata.s3.amazonaws.com/index.html under this licence https://ride.divvybikes.com/data-license-agreement. The data has not been included here due to it's volume (\~1.1GB) except for a list of stations which were extracted during analysis.
+The 2021 data is actually real data made publically available by a bike share
+called Divvy. It can be accessed here
+https://divvy-tripdata.s3.amazonaws.com/index.html under this licence
+https://ride.divvybikes.com/data-license-agreement. The data has not been
+included here due to it's volume (\~1.1GB) except for a list of stations which
+were extracted during analysis.
 
 ## Dependencies
 
@@ -34,9 +53,14 @@ install.packages("viridis")
 
 ## Preperation
 
-The data is split over twelve files each representing a month of 2021. To make cleaning and analysis easier these are being amalgamated here and stored as a new single file for ease of use. If monthly analysis is needed then the data can be grouped on the start or end trip time at the time of analysis. The files were renamed for ease of reading.
+The data is split over twelve files each representing a month of 2021. To make
+cleaning and analysis easier these are being amalgamated here and stored as a
+new single file for ease of use. If monthly analysis is needed then the data
+can be grouped on the start or end trip time at the time of analysis. The files
+were renamed for ease of reading.
 
-Here I am reading all twelve CSV files and merging them together. The headers are identical so this was a trivial task.
+Here I am reading all twelve CSV files and merging them together. The headers
+are identical so this was a trivial task.
 
 ```{r prep}
 library("tidyverse")
@@ -49,7 +73,8 @@ trip_data <- list.files(path = "~/Documents/Analytics/Cyclistic/data",
 
 ## Sneaky peek
 
-A quick modifiable snippet for general inspection of the raw trip data before any cleaning and manipulation.
+A quick modifiable snippet for general inspection of the raw trip data before
+any cleaning and manipulation.
 
 ```{r summary}
 head(trip_data)
@@ -80,13 +105,28 @@ trip_data %>%
 
 ### Why do some trips have missing station details?
 
-During an initial appraisal of the data it was noted that a number of the trip entries are missing station data. Some cleaning will be required here before we proceed to analysis.
+During an initial appraisal of the data it was noted that a number of the trip
+entries are missing station data. Some cleaning will be required here before we
+proceed to analysis.
 
-It may be useful to investigate this as it may indicate a problem with the registration or reporting of bicycle usage events at stations. It may be possible to find identify trends in missing station details from this data set but a full analysis is out of scope.
+It may be useful to investigate this as it may indicate a problem with the
+registration or reporting of bicycle usage events at stations. It may be
+possible to find identify trends in missing station details from this data set
+but a full analysis is out of scope.
 
-In regards to the task at hand, the missing data and removal of associated entries may cause an unintended bias in results and conclusions which may then result in sub-optimal decision making. This would be especially true if the issues are generalized around specific stations or bike types as these variables are analysed and visualized towards the end of this document.
+In regards to the task at hand, the missing data and removal of associated
+entries may cause an unintended bias in results and conclusions which may then
+result in sub-optimal decision making. This would be especially true if the
+issues are generalized around specific stations or bike types as these
+variables are analysed and visualized towards the end of this document.
 
-The following snippet takes a quick look to gauge the potential impact. The resultant print out shows that a lot of trips are missing both start and end stations which isn't helpful in determining where an issue may be. The print out doesn't really tell us a lot except for the extent of the issue but if resources are available in the future it may be possible to reconstruct the station names and IDs using the coordinates and cross identifying. This will not be done as part of the current analysis task.
+The following snippet takes a quick look to gauge the potential impact. The
+resultant print out shows that a lot of trips are missing both start and end
+stations which isn't helpful in determining where an issue may be. The print
+out doesn't really tell us a lot except for the extent of the issue but if
+resources are available in the future it may be possible to reconstruct the
+station names and IDs using the coordinates and cross identifying. This will
+not be done as part of the current analysis task.
 
 ```{r missing_station_data}
 trip_data %>%
@@ -107,7 +147,8 @@ trip_data %>%
 
 ### Actual cleaning
 
-The trips with missing start or end stations are being removed so they don't interfere with analysis.
+The trips with missing start or end stations are being removed so they don't
+interfere with analysis.
 
 ```{r clean}
 cleaned <- trip_data %>%
@@ -122,9 +163,14 @@ head(cleaned)
 
 ## Identifying and analysing stations
 
-There was no machine readable metadata file included with the trip data that lists the stations and bike types etc. Here the metadata is being inferred from the trip data with some additional analysis on stations to make visualization easier. The analysis is separated into functions for readability and potential reuse.
+There was no machine readable metadata file included with the trip data that
+lists the stations and bike types etc. Here the metadata is being inferred from
+the trip data with some additional analysis on stations to make visualization
+easier. The analysis is separated into functions for readability and potential
+reuse.
 
-The list of stations is also being written out at the end of this snippet as it may prove useful for ingesting into other visualisation tools later.
+The list of stations is also being written out at the end of this snippet as it
+may prove useful for ingesting into other visualisation tools later.
 
 ```{r stations}
 get_rider_types <- function(data) {
@@ -244,18 +290,28 @@ print(rider_types)
 print(bike_types)
 head(all_stations)
 
-write.table(all_stations , file = "~/Documents/Analytics/Cyclistic/data/stations.csv", sep=",", row.names=FALSE)
+write.table(
+  all_stations,
+  file = "~/Documents/Analytics/Cyclistic/data/stations.csv",
+  sep=",",
+  row.names=FALSE,
+)
 ```
 
 ## Graph Visualisations
 
-The plots produced by the following snippets may be found within this repository.
+The plots produced by the following snippets may be found within this
+repository.
 
 ### What bicycle types are members and casuals riding?
 
-I make use of facets here to create two plots side by side so readers may assess the usage of bike types for each rider type (casuals and members) in isolation while also being able to compare the difference in bike preferences for casuals and members.
+I make use of facets here to create two plots side by side so readers may
+assess the usage of bike types for each rider type (casuals and members) in
+isolation while also being able to compare the difference in bike preferences
+for casuals and members.
 
-Classic bikes are by far the most popular with annual members completely shunning docked bikes. Interesting.
+Classic bikes are by far the most popular with annual members completely
+shunning docked bikes. Interesting.
 
 ```{r types_of_bicycle}
 cleaned %>%
@@ -282,9 +338,16 @@ ggsave("~/Documents/Analytics/Cyclistic/plots/bike_type-facet-rider_type.jpeg")
 
 ### How do casuals and members differ in trip duration?
 
-This plot involved a little more upfront analysis work so that average trip times can be displayed within each facet. The plot itself is a histogram showing the trip time in minutes split in to 15 second bins. Only trips under 80 minutes are shown as the tail of the distribution is uninteresting. However, the mean for each rider type is calculated from all cleaned trips.
+This plot involved a little more upfront analysis work so that average trip
+times can be displayed within each facet. The plot itself is a histogram
+showing the trip time in minutes split in to 15 second bins. Only trips under
+80 minutes are shown as the tail of the distribution is uninteresting. However,
+the mean for each rider type is calculated from all cleaned trips.
 
-We should focus on the shape and position of each distribution. Trips by annual member riders are a fair bit longer on average and there is more of them. Perhaps many casual riders are slower, travel further, or prefer to savour the journey.
+We should focus on the shape and position of each distribution. Trips by annual
+member riders are a fair bit longer on average and there is more of them.
+Perhaps many casual riders are slower, travel further, or prefer to savour the
+journey.
 
 ```{r trip_duration}
 # Disable scientific notation on axis
@@ -329,7 +392,8 @@ ggsave("~/Documents/Analytics/Cyclistic/plots/trip_duration-facet-rider_type.jpe
 
 ## Map visualisations
 
-The following are generalized functions for helping to build maps for plotting stations.
+The following are generalized functions for helping to build maps for plotting
+stations.
 
 ```{r station}
 station_map <- function(data, zoom) {
@@ -383,7 +447,8 @@ station_map_theme <- function() {
 
 ### Map of stations
 
-Plots all stations. This helps provide context for other maps and shows off the density of cycle stations in different parts of the city.
+Plots all stations. This helps provide context for other maps and shows off the
+density of cycle stations in different parts of the city.
 
 ```{r station}
 require(maps)
@@ -407,9 +472,14 @@ ggsave("~/Documents/Analytics/Cyclistic/plots/station-map.jpeg")
 
 ### Map of locations for member and casual riders
 
-Plots all stations where more than a 10,000 trips started. The size of each station point represents the approximate number of trips started.
+Plots all stations where more than a 10,000 trips started. The size of each
+station point represents the approximate number of trips started.
 
-It is no surprise that the center of Chicago is where most rides start for both rider types. It looks as though there is a single station where a disproportionately large number of casual riders begin their journey. Perhaps this is next to a main transport station or dock. Eager tourists who have just arrived maybe looking to stretch their legs maybe.
+It is no surprise that the center of Chicago is where most rides start for both
+rider types. It looks as though there is a single station where a
+disproportionately large number of casual riders begin their journey. Perhaps
+this is next to a main transport station or dock. Eager tourists who have just
+arrived maybe looking to stretch their legs maybe.
 
 ```{r station}
 require(maps)
@@ -455,7 +525,9 @@ ggsave("~/Documents/Analytics/Cyclistic/plots/station-start-point-map-facet-ride
 
 ### Map of ending locations for casual riders
 
-Plots all stations where more than a 10,000 trips ended. The size of each station point represents the approximate number of trips ended. This map is almost identical to the map of starting locations.
+Plots all stations where more than a 10,000 trips ended. The size of each
+station point represents the approximate number of trips ended. This map is
+almost identical to the map of starting locations.
 
 ```{r station}
 require(maps)
