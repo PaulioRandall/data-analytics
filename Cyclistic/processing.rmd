@@ -1,0 +1,500 @@
+---
+title: "Cyclistic"
+output: html_document
+date: '2022-02-20'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Cyclistic
+
+This is an R markdown file I produced as part of my capstone project required for completing the Google Data Analytics course hosted on Coursera. It required I bring together and demonstrate many of the skills and ideas I learnt throughout the course.
+
+While not the most beautiful diagrams you will see, I think I've got the hang of basic analysis and plotting. If this was a personal or work project I would have given each station a nice integer identifier, calculated a full set of various statistics about each, and possible stored the data in a database (probably SQLite to begin with) to better deal with the volume of data.
+
+## Assignment
+
+In a nutshell, Cyclistic a made up bike hiring company operating in Chicago has determined that annual membership holders are more profitable than casually paying riders, those paying per trip or per day. They wish to convert more of these casual riders into annually paying members. In order to create an effective marketing campaign they require an understanding of their customer base including how casual riders differ in behaviour and usage of Cyclistic's bikes. They have tasked me with using their past years anonymised data on bicycle usage to garner insights and generate recommendations on how to proceed.
+
+The 2021 data is actually real data made publically available by a bike share called Divvy. It can be accessed herehttps://divvy-tripdata.s3.amazonaws.com/index.html under this licence https://ride.divvybikes.com/data-license-agreement. The data has not been included here due to it's volume (\~1.1GB) except for a list of stations which were extracted during analysis.
+
+## Dependencies
+
+Install ahead of use so we solve any dependency issues early.
+
+```{r packages}
+install.packages("tidyverse")
+install.packages("ggplot2")
+install.packages("ggmap")
+install.packages("maps")
+install.packages("viridis")
+```
+
+## Preperation
+
+The data is split over twelve files each representing a month of 2021. To make cleaning and analysis easier these are being amalgamated here and stored as a new single file for ease of use. If monthly analysis is needed then the data can be grouped on the start or end trip time at the time of analysis. The files were renamed for ease of reading.
+
+Here I am reading all twelve CSV files and merging them together. The headers are identical so this was a trivial task.
+
+```{r prep}
+library("tidyverse")
+
+trip_data <- list.files(path = "~/Documents/Analytics/Cyclistic/data", 
+           pattern="2021-\\d\\d.csv",
+           full.names = T) %>%
+  map_df(~read_csv(.))
+```
+
+## Sneaky peek
+
+A quick modifiable snippet for general inspection of the raw trip data before any cleaning and manipulation.
+
+```{r summary}
+head(trip_data)
+
+summarise(trip_data, rows = n())
+
+trip_data %>%
+  filter(!is.null(started_at)) %>%
+  filter(!is.null(ended_at)) %>%
+  filter(member_casual == "member") %>%
+  mutate(time_taken = ended_at - started_at) %>%
+  summarise(
+    rows = n(),
+    mean_time = mean(time_taken),
+  )
+
+trip_data %>%
+  filter(rideable_type == "docked_bike") %>%
+  filter(member_casual == "member") %>%
+  print()
+
+trip_data %>%
+  distinct(start_station_id) %>%
+  print()
+```
+
+## Cleaning
+
+### Why do some trips have missing station details?
+
+During an initial appraisal of the data it was noted that a number of the trip entries are missing station data. Some cleaning will be required here before we proceed to analysis.
+
+It may be useful to investigate this as it may indicate a problem with the registration or reporting of bicycle usage events at stations. It may be possible to find identify trends in missing station details from this data set but a full analysis is out of scope.
+
+In regards to the task at hand, the missing data and removal of associated entries may cause an unintended bias in results and conclusions which may then result in sub-optimal decision making. This would be especially true if the issues are generalized around specific stations or bike types as these variables are analysed and visualized towards the end of this document.
+
+The following snippet takes a quick look to gauge the potential impact. The resultant print out shows that a lot of trips are missing both start and end stations which isn't helpful in determining where an issue may be. The print out doesn't really tell us a lot except for the extent of the issue but if resources are available in the future it may be possible to reconstruct the station names and IDs using the coordinates and cross identifying. This will not be done as part of the current analysis task.
+
+```{r missing_station_data}
+trip_data %>%
+  filter(
+    is.na(start_station_name) |
+    is.na(start_station_id) |
+    is.na(end_station_name) |
+    is.na(end_station_id)
+  ) %>%
+  group_by(start_station_id, end_station_id) %>%
+  summarise(
+    issue_count = n()
+  ) %>%
+  ungroup() %>%
+  arrange(desc(issue_count)) %>%
+  print()
+```
+
+### Actual cleaning
+
+The trips with missing start or end stations are being removed so they don't interfere with analysis.
+
+```{r clean}
+cleaned <- trip_data %>%
+  filter(!is.na(start_station_name)) %>%
+  filter(!is.na(start_station_id)) %>%
+  filter(!is.na(end_station_name)) %>%
+  filter(!is.na(end_station_id)) %>%
+  arrange(started_at)
+
+head(cleaned)
+```
+
+## Identifying and analysing stations
+
+There was no machine readable metadata file included with the trip data that lists the stations and bike types etc. Here the metadata is being inferred from the trip data with some additional analysis on stations to make visualization easier. The analysis is separated into functions for readability and potential reuse.
+
+The list of stations is also being written out at the end of this snippet as it may prove useful for ingesting into other visualisation tools later.
+
+```{r stations}
+get_rider_types <- function(data) {
+  rider_types <- unique(data$member_casual)
+  return (rider_types)
+}
+
+get_bike_types <- function(data) {
+  bike_types <- unique(data$rideable_type)
+  return (bike_types)
+}
+
+get_stations_ids <- function(data) {
+  start_ids <- unique(data$start_station_id)
+  end_ids <- unique(data$end_station_id)
+  
+  ids <- c(start_ids, end_ids)
+  ids <- unique(ids)
+  ids <- sort(ids)
+  
+  return (ids)
+}
+
+get_start_stations <- function(data) {
+  start_stations <- data %>%
+    select(
+      start_station_id,
+      start_station_name,
+      start_lat,
+      start_lng,
+      member_casual,
+    ) %>%
+    group_by(start_station_id) %>%
+    summarise(
+      id = start_station_id,
+      name = start_station_name,
+      lat = mean(start_lat),
+      lon = mean(start_lng),
+      trip_starts = n(),
+      trip_start_members = sum(member_casual == "member"),
+      trip_start_casuals = sum(member_casual == "casual"),
+      trip_ends = 0,
+      trip_end_members = 0, 
+      trip_end_casuals = 0,
+    ) %>%
+    ungroup() %>%
+    distinct(start_station_id, .keep_all = TRUE) %>%
+    select(-start_station_id)
+
+  return (start_stations)
+}
+
+get_end_stations <- function(data) {
+  end_stations <- data %>%
+    select(
+      end_station_id,
+      end_station_name,
+      end_lat,
+      end_lng,
+      member_casual,
+    ) %>%
+    group_by(end_station_id) %>%
+    summarise(
+      id = end_station_id,
+      name = end_station_name,
+      lat = mean(end_lat),
+      lon = mean(end_lng),
+      trip_starts = 0,
+      trip_start_members = 0,
+      trip_start_casuals = 0,
+      trip_ends = n(),
+      trip_end_members = sum(member_casual == "member"), 
+      trip_end_casuals = sum(member_casual == "casual"),
+    ) %>%
+    ungroup() %>%
+    distinct(end_station_id, .keep_all = TRUE) %>%
+    select(-end_station_id)
+  
+  return (end_stations)
+}
+
+get_all_stations <- function(data) {
+  
+  start_stations <- get_start_stations(data)
+  end_stations <- get_end_stations(data)
+
+  stations <- 
+    rbind(start_stations, end_stations) %>%
+    group_by(id) %>%
+    summarise(
+      name,
+      lat = mean(lat),
+      lon = mean(lon),
+      
+      trip_starts = sum(trip_starts),
+      trip_start_members = sum(trip_start_members),
+      trip_start_casuals = sum(trip_start_casuals),
+      
+      trip_ends = sum(trip_ends),
+      trip_end_members = sum(trip_end_members),
+      trip_end_casuals = sum(trip_end_casuals),
+      
+      total_trip_activity = sum(trip_starts, trip_ends),
+    ) %>%
+    ungroup() %>%
+    distinct(id, .keep_all = TRUE) %>%
+    arrange(desc(total_trip_activity))
+    
+  return (stations)
+}
+
+rider_types  <- get_rider_types(cleaned)
+bike_types   <- get_bike_types(cleaned)
+all_stations <- get_all_stations(cleaned)
+
+print(rider_types)
+print(bike_types)
+head(all_stations)
+
+write.table(all_stations , file = "~/Documents/Analytics/Cyclistic/data/stations.csv", sep=",", row.names=FALSE)
+```
+
+## Graph Visualisations
+
+The plots produced by the following snippets may be found within this repository.
+
+### What bicycle types are members and casuals riding?
+
+I make use of facets here to create two plots side by side so readers may assess the usage of bike types for each rider type (casuals and members) in isolation while also being able to compare the difference in bike preferences for casuals and members.
+
+Classic bikes are by far the most popular with annual members completely shunning docked bikes. Interesting.
+
+```{r types_of_bicycle}
+cleaned %>%
+  group_by(rideable_type) %>%
+  ggplot() +
+    geom_bar(mapping = aes(x=rideable_type, fill=rideable_type)) +
+    facet_grid(~member_casual) +
+    theme(
+      legend.position="none",
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5),
+      plot.caption = element_text(hjust = 0.5),
+      axis.text.x = element_text(angle = 45, hjust=1),
+    ) +
+    labs(
+      title="What bicycle types are members and casuals riding?",
+      subtitle="Data for 2021",
+      x="Bicycle type",
+      y="Number of riders",
+    )
+
+ggsave("~/Documents/Analytics/Cyclistic/plots/bike_type-facet-rider_type.jpeg")
+```
+
+### How do casuals and members differ in trip duration?
+
+This plot involved a little more upfront analysis work so that average trip times can be displayed within each facet. The plot itself is a histogram showing the trip time in minutes split in to 15 second bins. Only trips under 80 minutes are shown as the tail of the distribution is uninteresting. However, the mean for each rider type is calculated from all cleaned trips.
+
+We should focus on the shape and position of each distribution. Trips by annual member riders are a fair bit longer on average and there is more of them. Perhaps many casual riders are slower, travel further, or prefer to savour the journey.
+
+```{r trip_duration}
+# Disable scientific notation on axis
+options(scipen = 999)
+
+with_trip_duration <- cleaned %>%
+  mutate(time_taken_sec = as.numeric(ended_at - started_at)) %>%
+  mutate(time_taken_min = time_taken_sec / 60)
+
+mean_duration <- with_trip_duration %>%
+  group_by(member_casual) %>%
+  summarize(label = round(mean(time_taken_min), 2)) %>%
+  mutate(label = as.character(label)) %>%
+  mutate(label = paste("Mean: ", label, "mins"))
+  
+with_trip_duration %>%
+  ggplot() +
+    geom_histogram(
+      mapping = aes(x=time_taken_min, fill=member_casual),
+      # Only includes trips under 80 mins split into 15 sec intervals
+      breaks=seq(0, 80, by=0.25),
+    ) +
+    facet_grid(member_casual~ .) +
+    geom_label(
+      data    = mean_duration,
+      mapping = aes(x=40, y=30000, group=member_casual, label=label, size=4),
+    ) +
+    theme(
+      legend.position="none",
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5),
+    ) +
+    labs(
+      title="How do casuals and members differ in trip duration?",
+      subtitle="Data for 2021, the mean includes trips over 80 minutes",
+      x="Trip time in minutes",
+      y="Number of trips",
+    )
+
+ggsave("~/Documents/Analytics/Cyclistic/plots/trip_duration-facet-rider_type.jpeg")
+```
+
+## Map visualisations
+
+The following are generalized functions for helping to build maps for plotting stations.
+
+```{r station}
+station_map <- function(data, zoom) {
+  # This creates a bounding box that all coordinates are guaranteed to lie
+  # within
+  bbox <- make_bbox(
+    lon = data$lon,
+    lat = data$lat,
+    f = 0.1,
+  )
+  
+  # Creates a terrain map using Google map tiles of the area specified by the
+  # bounding_box that was just created
+  return (get_map(
+    location = bbox,
+    maptype = "toner-lite",
+    source = "stamen",
+    zoom = zoom,
+  ))
+}
+
+station_geom_point <- function(data) {
+  return (geom_point(
+    data = data,
+    mapping = aes(
+      x = lon,
+      y = lat,
+      size = point_size,
+      color = point_size,
+      alpha = 0.5,
+    )
+  ))
+}
+
+station_map_theme <- function() {
+  return (theme(
+    # Remove legend
+    legend.position="none",
+    # Remove axis
+    axis.text.x=element_blank(),
+    axis.ticks.x=element_blank(),
+    axis.text.y=element_blank(),
+    axis.ticks.y=element_blank(),
+    # Center titles & captions
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5),
+    plot.caption = element_text(hjust = 0.5),
+  ))
+}
+```
+
+### Map of stations
+
+Plots all stations. This helps provide context for other maps and shows off the density of cycle stations in different parts of the city.
+
+```{r station}
+require(maps)
+require(viridis)
+require(ggmap)
+
+ggmap(station_map(all_stations, 10)) +
+  geom_point(
+    data = all_stations,
+    mapping = aes(
+      x = lon,
+      y = lat,
+      colour = "red",
+    )
+  ) +
+  station_map_theme() +
+  labs(x="", y="")
+
+ggsave("~/Documents/Analytics/Cyclistic/plots/station-map.jpeg")
+```
+
+### Map of locations for member and casual riders
+
+Plots all stations where more than a 10,000 trips started. The size of each station point represents the approximate number of trips started.
+
+It is no surprise that the center of Chicago is where most rides start for both rider types. It looks as though there is a single station where a disproportionately large number of casual riders begin their journey. Perhaps this is next to a main transport station or dock. Eager tourists who have just arrived maybe looking to stretch their legs maybe.
+
+```{r station}
+require(maps)
+require(viridis)
+require(ggmap)
+
+start_stations <- cleaned %>%
+  select(
+    member_casual,
+    start_station_name,
+    start_station_id,
+    start_lat,
+    start_lng,
+  ) %>%
+  group_by(start_station_id, start_station_name, member_casual) %>%
+  summarise(
+    member_casual,
+    trips = n(),
+    lat = mean(start_lat),
+    lon = mean(start_lng),
+  ) %>%
+  filter(trips >= 10000) %>%
+  # Point size is used to specify the size of station point on the map
+  mutate(point_size = round(trips / 10000, 1)) %>%
+  arrange(desc(trips))
+
+ggmap(station_map(all_stations, 10)) +
+  station_geom_point(start_stations) +
+  # Change the color of the points dependent on the point size to increase
+  # visual discriminability
+  scale_color_gradient(low="red", high="blue") +
+  facet_wrap(~member_casual) +
+  station_map_theme() +
+  labs(
+    x="",
+    y="",
+    title = "Map of trip starting locations",
+    subtitle="Data for 2021 where more than 10,000 trips started",
+  )
+
+ggsave("~/Documents/Analytics/Cyclistic/plots/station-start-point-map-facet-rider-type.jpeg")
+```
+
+### Map of ending locations for casual riders
+
+Plots all stations where more than a 10,000 trips ended. The size of each station point represents the approximate number of trips ended. This map is almost identical to the map of starting locations.
+
+```{r station}
+require(maps)
+require(viridis)
+require(ggmap)
+
+end_stations <- cleaned %>%
+  select(
+    member_casual,
+    end_station_name,
+    end_station_id,
+    end_lat,
+    end_lng,
+  ) %>%
+  group_by(end_station_id, end_station_name, member_casual) %>%
+  summarise(
+    member_casual,
+    trips = n(),
+    lat = mean(end_lat),
+    lon = mean(end_lng),
+  ) %>%
+  filter(trips >= 10000) %>%
+  # Point size is used to specify the size of station point on the map
+  mutate(point_size = round(trips / 10000, 1)) %>%
+  arrange(desc(trips))
+
+ggmap(station_map(all_stations, 10)) +
+  station_geom_point(end_stations) +
+  # Change the color of the points dependent on the point size to increase
+  # visual discriminability
+  scale_color_gradient(low="red", high="blue") +
+  facet_wrap(~member_casual) +
+  station_map_theme() +
+  labs(
+    x="",
+    y="",
+    title = "Map of trip ending locations",
+    subtitle="Data for 2021 where more than 10,000 trips ended",
+  )
+
+ggsave("~/Documents/Analytics/Cyclistic/plots/station-end-point-map-facet-rider-type.jpeg")
+```
