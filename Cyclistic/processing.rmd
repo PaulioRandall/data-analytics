@@ -23,8 +23,8 @@ various statistics about each, and possible stored the data in a database
 
 ## Assignment
 
-In a nutshell, Cyclistic a made up bike hiring company operating in Chicago has
-determined that annual membership holders are more profitable than casually
+In a nutshell, Cyclistic, a made up bike hiring company operating in Chicago,
+has determined that annual membership holders are more profitable than casually
 paying riders, those paying per trip or per day. They wish to convert more of
 these casual riders into annually paying members. In order to create an
 effective marketing campaign they require an understanding of their customer
@@ -111,14 +111,14 @@ proceed to analysis.
 
 It may be useful to investigate this as it may indicate a problem with the
 registration or reporting of bicycle usage events at stations. It may be
-possible to find identify trends in missing station details from this data set
+possible to identify trends in missing station details from this data set
 but a full analysis is out of scope.
 
 In regards to the task at hand, the missing data and removal of associated
 entries may cause an unintended bias in results and conclusions which may then
 result in sub-optimal decision making. This would be especially true if the
-issues are generalized around specific stations or bike types as these
-variables are analysed and visualized towards the end of this document.
+issues occur around specific stations or bike types as these variables are
+analysed and visualized towards the end of this document.
 
 The following snippet takes a quick look to gauge the potential impact. The
 resultant print out shows that a lot of trips are missing both start and end
