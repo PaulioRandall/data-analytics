@@ -15,11 +15,18 @@ for completing the Google Data Analytics course hosted on Coursera. It required
 I bring together and demonstrate many of the skills and ideas I learnt
 throughout the course.
 
-While not the most beautiful diagrams you will see, I think I've got the hang
+Quote texts, those texts starting with a `>`, are used to provide retrospective
+thoughts on my work. A self review as you will. If viewing this file using a
+markdown renderer then these should be styled distinctly different from normal
+text such as this.
+
+> While not the most beautiful diagrams you will see, I think I've got the hang
 of basic analysis and plotting. If this was a personal or work project I would
 have given each station a nice integer identifier, calculated a full set of
 various statistics about each, and possible stored the data in a database
-(probably SQLite to begin with) to better deal with the volume of data.
+(probably SQLite to begin with) to better deal with the volume of data. I
+choose not to do that here as I'm still new to the tools and techniques used.
+Something that will change with practice.
 
 ## Assignment
 
@@ -28,11 +35,11 @@ determined that annual membership holders are more profitable than casually
 paying riders, those paying per trip or per day. They wish to convert more of
 these casual riders into annually paying members. In order to create an
 effective marketing campaign they require an understanding of their customer
-base including how casual riders differ in behaviour and usage of Cyclistic's
-bikes. They have tasked me with using their past years anonymised data on
-bicycle usage to garner insights and generate recommendations on how to proceed.
+base including how casual riders differ in behaviour and use of Cyclistic's
+bikes. They have tasked me with using their past years anonymised data to
+garner insights and generate recommendations on how to proceed.
 
-The 2021 data is actually real data made publically available by a bike share
+The 2021 data is actually real data made publicly available by a bike share
 called Divvy. It can be accessed here
 https://divvy-tripdata.s3.amazonaws.com/index.html under this licence
 https://ride.divvybikes.com/data-license-agreement. The data has not been
@@ -57,10 +64,11 @@ The data is split over twelve files each representing a month of 2021. To make
 cleaning and analysis easier these are being amalgamated here and stored as a
 new single file for ease of use. If monthly analysis is needed then the data
 can be grouped on the start or end trip time at the time of analysis. The files
-were renamed for ease of reading.
+were renamed with the month it represents, i.e. `YYYY-MM.csv`, for ease of
+reading.
 
 Here I am reading all twelve CSV files and merging them together. The headers
-are identical so this was a trivial task.
+are identical so fortunately this was a trivial task.
 
 ```{r prep}
 library("tidyverse")
@@ -73,8 +81,10 @@ trip_data <- list.files(path = "~/Documents/Analytics/Cyclistic/data",
 
 ## Sneaky peek
 
-A quick modifiable snippet for general inspection of the raw trip data before
-any cleaning and manipulation.
+A quick modifiable snippet for general inspection of the raw trip data.
+No changes are made to the session or file state from this snippet so it
+essentially acts as a playground for exploring the data and trying out bits
+of processing.
 
 ```{r summary}
 head(trip_data)
@@ -115,9 +125,9 @@ possible to find identify trends in missing station details from this data set
 but a full analysis is out of scope.
 
 In regards to the task at hand, the missing data and removal of associated
-entries may cause an unintended bias in results and conclusions which may then
+entries may cause an unintended bias in results and conclusions. This may then
 result in sub-optimal decision making. This would be especially true if the
-issues are generalized around specific stations or bike types as these
+issues are generalized around specific stations or bike types since these
 variables are analysed and visualized towards the end of this document.
 
 The following snippet takes a quick look to gauge the potential impact. The
@@ -150,6 +160,12 @@ trip_data %>%
 The trips with missing start or end stations are being removed so they don't
 interfere with analysis.
 
+> I could have done a fair bit more to clean and organise the data for analysis
+but there was no reason to do so for the specific assignment at hand. However,
+I would want the data to be in a clean and organised state so I quickly do
+further analysis in the future. Clean and organised data would also be
+beneficial for company hackathon events.
+
 ```{r clean}
 cleaned <- trip_data %>%
   filter(!is.na(start_station_name)) %>%
@@ -170,7 +186,12 @@ easier. The analysis is separated into functions for readability and potential
 reuse.
 
 The list of stations is also being written out at the end of this snippet as it
-may prove useful for ingesting into other visualisation tools later.
+may prove useful for ingesting into other visualization tools later.
+
+> I feel these were a really good idea. Funtions, procedures, sub-routines, etc
+are possible the greatest abstraction available to a software engineer of any
+kind. Perhaps I could of architected them better but considering my relatively
+beginner skills in R and data analysis I think I did good job.
 
 ```{r stations}
 get_rider_types <- function(data) {
@@ -313,6 +334,13 @@ for casuals and members.
 Classic bikes are by far the most popular with annual members completely
 shunning docked bikes. Interesting.
 
+> This was quite an easy implementation and I feel a useful plot. I didn't
+bother to relabel the x-axis but in future I think it will be a very good idea
+to make it neater and more professional. I'm pretty sure I could have
+represented the same information better in other plots. My lack of knowledge
+of diagrams and how to construct them in R is a something I will need to work
+on.
+
 ```{r types_of_bicycle}
 cleaned %>%
   group_by(rideable_type) %>%
@@ -342,12 +370,18 @@ This plot involved a little more upfront analysis work so that average trip
 times can be displayed within each facet. The plot itself is a histogram
 showing the trip time in minutes split in to 15 second bins. Only trips under
 80 minutes are shown as the tail of the distribution is uninteresting. However,
-the mean for each rider type is calculated from all cleaned trips.
+the mean for each rider type is calculated from all cleaned trips including
+those over 80 minutes.
 
 We should focus on the shape and position of each distribution. Trips by annual
 member riders are a fair bit longer on average and there is more of them.
 Perhaps many casual riders are slower, travel further, or prefer to savour the
 journey.
+
+> After creating this second diagram I became aware of how many new questions
+the analysis process is creating. I had a single question to direct analysis
+and visualisation but from just two diagrams I've generated a lot of new ones,
+allbeit more specific and not answerable with the available data.
 
 ```{r trip_duration}
 # Disable scientific notation on axis
@@ -394,6 +428,12 @@ ggsave("~/Documents/Analytics/Cyclistic/plots/trip_duration-facet-rider_type.jpe
 
 The following are generalized functions for helping to build maps for plotting
 stations.
+
+> Again, functions are an amazing abstraction. They can drastically increase
+> readability and code modularity while incuring very little in the way of
+> complexity, implementation, or maintenance costs. I think abstracting the
+> general theme, in so much as possible, is a good way to keep diagrams
+> consitent and quick to construct.
 
 ```{r station}
 station_map <- function(data, zoom) {
@@ -450,6 +490,14 @@ station_map_theme <- function() {
 Plots all stations. This helps provide context for other maps and shows off the
 density of cycle stations in different parts of the city.
 
+> It was surprisingly confusing to plot a map that had very small points.
+> Setting the size of points always made them bigger no matter how small a
+> value I used. Perhaps there is some trick or I'm missing some knowledge on
+> how ggmap or TidyVerse operates. Removing the point size setting gave a
+> usable map but I'd like to have styled it a little better. Maybe some form
+> of clustering would have helped show the relative densities of bike stations
+> in different parts of the city.
+
 ```{r station}
 require(maps)
 require(viridis)
@@ -480,6 +528,12 @@ rider types. It looks as though there is a single station where a
 disproportionately large number of casual riders begin their journey. Perhaps
 this is next to a main transport station or dock. Eager tourists who have just
 arrived maybe looking to stretch their legs maybe.
+
+> Again, more trouble with point sizing. I think this is one area I need to
+> look at because I can imagine plotting maps a lot in future. This map
+> could definitely have been created better. I felt you could only learn so
+> much from each analysis session and from each project. The mind can only
+> learn so much in one go.
 
 ```{r station}
 require(maps)
@@ -529,6 +583,8 @@ Plots all stations where more than a 10,000 trips ended. The size of each
 station point represents the approximate number of trips ended. This map is
 almost identical to the map of starting locations.
 
+> This is almost identical to the previous plot and the same sentiment applies.
+
 ```{r station}
 require(maps)
 require(viridis)
@@ -570,3 +626,12 @@ ggmap(station_map(all_stations, 10)) +
 
 ggsave("~/Documents/Analytics/Cyclistic/plots/station-end-point-map-facet-rider-type.jpeg")
 ```
+
+> All in all I don't think it was bad for my first major R project. My
+> knowledge of statistics, analysis techniques, and types of visualisation
+> are definitely a notable barrier. This is where I intend to focus my data
+> analytics learning for now. I don't think there is any need to specifically
+> develop my R skills directly at this moment, instead, I think learning
+> through a 'burn the ships' approach is best. I should continue to use R in
+> future projects to advance my skills indirectly and do specialised learning
+> on aspects of R as and when they are needed.
