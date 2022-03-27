@@ -380,7 +380,11 @@ journey.
 
 > After creating this second diagram I became aware of how many new questions
 > the analysis process is creating. I had a single question to direct analysis
-> and visualisation but from just two diagrams I've generated a lot of new ones,
+> and visualisation but from just two diagrams I've generated a lot of new
+> ones. This was originally a line graph with two lines but I change to a
+> histogram as I thought putting the time intervals in buckets would be more
+> useful. Initially it was but looking at it in retrospective I should of kept
+> it as a single line graph categorised by membership type.
 
 ```{r trip_duration}
 # Disable scientific notation on axis
