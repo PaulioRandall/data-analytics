@@ -21,17 +21,17 @@ markdown renderer then these should be styled distinctly different from normal
 text such as this.
 
 > While not the most beautiful diagrams you will see, I think I've got the hang
-of basic analysis and plotting. If this was a personal or work project I would
-have given each station a nice integer identifier, calculated a full set of
-various statistics about each, and possible stored the data in a database
-(probably SQLite to begin with) to better deal with the volume of data. I
-choose not to do that here as I'm still new to the tools and techniques used.
-Something that will change with practice.
+> of basic analysis and plotting. If this was a personal or work project I would
+> have given each station a nice integer identifier, calculated a full set of
+> various statistics about each, and possible stored the data in a database
+> (probably SQLite to begin with) to better deal with the volume of data. I
+> choose not to do that here as I'm still new to the tools and techniques used.
+> Something that will change with practice.
 
 ## Assignment
 
-In a nutshell, Cyclistic a made up bike hiring company operating in Chicago has
-determined that annual membership holders are more profitable than casually
+In a nutshell, Cyclistic, a made up bike hiring company operating in Chicago,
+has determined that annual membership holders are more profitable than casually
 paying riders, those paying per trip or per day. They wish to convert more of
 these casual riders into annually paying members. In order to create an
 effective marketing campaign they require an understanding of their customer
@@ -121,14 +121,14 @@ proceed to analysis.
 
 It may be useful to investigate this as it may indicate a problem with the
 registration or reporting of bicycle usage events at stations. It may be
-possible to find identify trends in missing station details from this data set
+possible to identify trends in missing station details from this data set
 but a full analysis is out of scope.
 
 In regards to the task at hand, the missing data and removal of associated
 entries may cause an unintended bias in results and conclusions. This may then
 result in sub-optimal decision making. This would be especially true if the
-issues are generalized around specific stations or bike types since these
-variables are analysed and visualized towards the end of this document.
+issues occur around specific stations or bike types as these variables are
+analysed and visualized towards the end of this document.
 
 The following snippet takes a quick look to gauge the potential impact. The
 resultant print out shows that a lot of trips are missing both start and end
@@ -161,10 +161,10 @@ The trips with missing start or end stations are being removed so they don't
 interfere with analysis.
 
 > I could have done a fair bit more to clean and organise the data for analysis
-but there was no reason to do so for the specific assignment at hand. However,
-I would want the data to be in a clean and organised state so I quickly do
-further analysis in the future. Clean and organised data would also be
-beneficial for company hackathon events.
+> but there was no reason to do so for the specific assignment at hand. However,
+> I would want the data to be in a clean and organised state so I quickly do
+> further analysis in the future. Clean and organised data would also be
+> beneficial for company hackathon events.
 
 ```{r clean}
 cleaned <- trip_data %>%
@@ -189,9 +189,9 @@ The list of stations is also being written out at the end of this snippet as it
 may prove useful for ingesting into other visualization tools later.
 
 > I feel these were a really good idea. Funtions, procedures, sub-routines, etc
-are possible the greatest abstraction available to a software engineer of any
-kind. Perhaps I could of architected them better but considering my relatively
-beginner skills in R and data analysis I think I did good job.
+> are possible the greatest abstraction available to a software engineer of any
+> kind. Perhaps I could of architected them better but considering my relatively
+> beginner skills in R and data analysis I think I did good job.
 
 ```{r stations}
 get_rider_types <- function(data) {
@@ -335,11 +335,11 @@ Classic bikes are by far the most popular with annual members completely
 shunning docked bikes. Interesting.
 
 > This was quite an easy implementation and I feel a useful plot. I didn't
-bother to relabel the x-axis but in future I think it will be a very good idea
-to make it neater and more professional. I'm pretty sure I could have
-represented the same information better in other plots. My lack of knowledge
-of diagrams and how to construct them in R is a something I will need to work
-on.
+> bother to relabel the x-axis but in future I think it will be a very good
+> idea to make it neater and more professional. I'm pretty sure I could have
+> represented the same information better in other plots. My lack of knowledge
+> of diagrams and how to construct them in R is a something I will need to work
+> on.
 
 ```{r types_of_bicycle}
 cleaned %>%
@@ -379,9 +379,8 @@ Perhaps many casual riders are slower, travel further, or prefer to savour the
 journey.
 
 > After creating this second diagram I became aware of how many new questions
-the analysis process is creating. I had a single question to direct analysis
-and visualisation but from just two diagrams I've generated a lot of new ones,
-allbeit more specific and not answerable with the available data.
+> the analysis process is creating. I had a single question to direct analysis
+> and visualisation but from just two diagrams I've generated a lot of new ones,
 
 ```{r trip_duration}
 # Disable scientific notation on axis
