@@ -1,0 +1,138 @@
+---
+title: "Covid Visualisations"
+author: "Paul Williams"
+date: '2022-04-05'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Learning to Visualise in R using Covid data
+
+I've started this project so I can learn more about visualizing data in R using
+ggplot, ggmap, and other Grammar of Graphics based tools.
+
+## Data source
+
+Data download link: https://covid.ourworldindata.org/data/owid-covid-data.csv
+
+The data used has been sourced from https://ourworldindata.org. A download link
+and list of their data sources is available via the README.md of this Github
+project https://github.com/owid/covid-19-data/tree/master/public/data. The
+README.md also lists the metadata, i.e. descriptions of variables and other
+links for understanding the data and how it was collected.
+
+The visualizations and insights presented or mentioned in this project are only
+as reliable as the underlying data and my relatively apprentice level ability.
+
+## Dependencies
+
+I currently prefer to specify my dependencies upfront so they're installed
+and ready to go. As I'm fairly new to the field my best strategy is to follow
+industry norms, practices, and tools such as `tidyverse` until I'm ready to
+start breaking the rules and flouting conventions for better results. However,
+as a seasoned software engineer I will use my own judgement and preference for
+writing readable and iconic code.
+
+```{r packages}
+install.packages("tidyverse")
+#install.packages("ggplot2")
+#install.packages("ggmap")
+#install.packages("maps")
+#install.packages("viridis")
+```
+
+## Reading the data
+
+```{r reading-the-data}
+library("tidyverse")
+
+raw_data <- read_csv("./data/owid-covid-data.csv")
+head(raw_data)
+```
+
+## Functions for extracting column options
+
+Here I am just defining the functions that can be used to extract the distinct
+values for particular columns.
+
+```{r functions-for-extracting-column-options}
+
+get_distinct_col <- function(data, col) {
+  col_sym <- rlang::sym(col)
+  
+  r <- data %>%
+    filter(!is.na(!!col_sym)) %>%
+    select(!!col_sym) %>%
+    distinct(!!col_sym) %>%
+    arrange(!!col_sym)
+  
+  return (r)
+}
+
+get_geo_metadata <- function(data) {
+  r <- data %>%
+    group_by(continent, location, iso_code) %>%
+    distinct(location) %>%
+    summarise(
+      continent,
+      location,
+      iso_code,
+    ) %>%
+    ungroup() %>%
+    arrange(location)
+  
+  return (r)
+}
+
+get_all_continents <- function(data) {
+  return (get_distinct_col(data, 'continent'))
+}
+
+get_all_locations <- function(data) {
+  return (get_distinct_col(data, 'location'))
+}
+
+get_all_special_locations <- function(data) {
+  r <- data %>%
+    filter(startsWith(iso_code, 'OWID_')) %>%
+    select(location, iso_code) %>%
+    arrange(location)
+  
+  return (r)
+}
+
+get_all_country_locations <- function(data) {
+  r <- data %>%
+    filter(!startsWith(iso_code, 'OWID_')) %>%
+    select(location, iso_code) %>%
+    arrange(location)
+  
+  return (r)
+}
+```
+
+## Listing column options
+
+Pre-extracting column options so I can print them for reference and possibly
+use them later. In this case we can just call the extraction functions as and
+when needed but with a much bigger dataset it might be prudent to pre-extract
+to speed things up. Although, I'm pretty sure the selection of distinct
+columns is a pretty fast operation.
+
+```{r listing-column-options}
+geo_metadata          <- get_geo_metadata(raw_data)
+all_continents        <- get_all_continents(geo_metadata)
+all_locations         <- get_all_locations(geo_metadata)
+all_country_locations <- get_all_country_locations(geo_metadata)
+all_special_locations <- get_all_special_locations(geo_metadata)
+
+print(geo_metadata)
+print(all_continents)
+print(all_locations)
+print(all_country_locations)
+print(all_special_locations)
+```
+
