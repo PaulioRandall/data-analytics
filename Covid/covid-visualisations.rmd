@@ -14,6 +14,10 @@ knitr::opts_chunk$set(echo = TRUE)
 I've started this project so I can learn more about visualizing data in R using
 ggplot, ggmap, and other Grammar of Graphics based tools.
 
+Questions:
+
+- I want to go on holiday in Europe but want the best chance of avoiding Covid. Which European countries should I consider and which ones should I avoid?
+
 ## Data source
 
 Data download link: https://covid.ourworldindata.org/data/owid-covid-data.csv
@@ -43,37 +47,61 @@ install.packages("lubridate")
 #install.packages("ggmap")
 #install.packages("maps")
 #install.packages("viridis")
-```
 
-## Reading the data
-
-Place the data within a folder called `data`. If downloading from the links
-provided at the beginning of this document then file should already have the
-correct name, else, rename it to `owid-covid-data.csv`. The data looks
-pre-cleaned, which is nice. I may have to clean and up for certain activities
-but I think it's better to do that just before visualization. If I end up
-doing the same cleaning repeatedly I can just refactor. Refactoring is one of
-the most useful skills a programmer can have and something greatly under used.
-
-```{r reading-the-data}
 library("tidyverse")
-
-raw_data <- read_csv("./data/owid-covid-data.csv")
-head(raw_data)
 ```
 
-## Functions for extracting column options
+## Utility functions
 
-Here I am just defining the functions that can be used to extract the distinct
-values for particular columns, i.e. continents, countries, and etc.
+Here I am just defining functions to avoid unnecessarily repeating myself.
 
-```{r functions-for-extracting-column-options}
+```{r utility-functions}
+apply_data_types <- function(data) {
+  r <- data %>%
+    mutate(
+      total_cases = as.integer(total_cases),
+    )
+  
+  return (r)
+}
 
-get_distinct_col <- function(data, col) {
+# save_plot saves the last plot creating the required parent directories if
+# they currently don't exist
+save_plot <- function(filename) {
+  dir <- "./plots"
+ 
+  if (!file.exists(dir)) {
+    dir.create(dir, mode = "0744")
+  }
+  
+  path <- paste(dir, filename, sep = "/")
+  ggsave(path)
+}
+
+apply_project_theme <- function() {
+  t <- theme(
+    # Remove legend
+    legend.position="none",
+    # Center titles & captions
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5),
+    plot.caption = element_text(hjust = 0.5),
+  )
+  
+  return (t)
+}
+
+# get_distinct_col identifies all unique values in a specific column
+get_distinct_col <- function(data, col, include_na=FALSE) {
   col_sym <- rlang::sym(col)
   
-  r <- data %>%
-    filter(!is.na(!!col_sym)) %>%
+  if (include_na) {
+    r <- data
+  } else {
+    r <- filter(data, !is.na(!!col_sym))
+  }
+  
+  r <- r %>%
     select(!!col_sym) %>%
     distinct(!!col_sym) %>%
     arrange(!!col_sym)
@@ -81,6 +109,7 @@ get_distinct_col <- function(data, col) {
   return (r)
 }
 
+# get_geo_metadata extracts metadata about geographic locations from the data
 get_geo_metadata <- function(data) {
   r <- data %>%
     group_by(continent, location, iso_code) %>%
@@ -123,36 +152,20 @@ get_all_special_locations <- function(data) {
 }
 ```
 
-## Listing column options
+## Reading the data
 
-I've decided to pre-extract the column options so I can print them for
-reference use them later. We could just call the extraction functions as and
-when needed in this case but with much bigger data sets there might be a
-execution speed hit. Then again, pre-extracting has a memory cost. I'm pretty
-sure the selection of distinct values is pretty fast in any scenario.
+Place the data within a folder called `data`. If downloading from the links
+provided at the beginning of this document then file should already have the
+correct name, else, rename it to `owid-covid-data.csv`. The data looks
+pre-cleaned, which is nice. I may have to clean and up for certain activities
+but I think it's better to do that just before visualization. If I end up
+doing the same cleaning repeatedly I can just refactor. Refactoring is one of
+the most useful skills a programmer can have and something greatly under used.
 
-```{r listing-column-options}
-geo_metadata          <- get_geo_metadata(raw_data)
-all_continents        <- get_all_continents(geo_metadata)
-all_locations         <- get_all_locations(geo_metadata)
-all_country_locations <- get_all_country_locations(geo_metadata)
-all_special_locations <- get_all_special_locations(geo_metadata)
-
-print(geo_metadata)
-print(all_continents)
-print(all_locations)
-print(all_country_locations)
-print(all_special_locations)
-```
-
-## Visualising total cases in European countries
-
-To get started I'm going to create a simple visualisation showing the number
-of total cases in a handful of European countries. Nothing original or fancy
-but it will help to develop my understanding of the data.
-
-```{r visualising-total-cases}
-# TODO Do next.
+```{r reading-the-data}
+raw_data <- read_csv("./data/owid-covid-data.csv")
+typed_data <- apply_data_types(raw_data)
+head(typed_data)
 ```
 
 ## Functions for amalgamating columns by time period
@@ -301,6 +314,16 @@ summable_cols <- c(
   "excess_mortality_cumulative_per_million"
 )
 
+location_sum <- function(data) {
+  r <- data %>%
+    group_by(location) %>%
+    summarise_at(summable_cols, sum, na.rm = TRUE) %>%
+    ungroup() %>%
+    arrange(location)
+    
+  return (r)
+}
+
 yearly_sum <- function(data) {
   r <- data %>%
     mutate(year = year(date)) %>% 
@@ -323,8 +346,42 @@ weekly_sum <- function(data) {
     
    return (r)
 }
-
-print(yearly_sum(raw_data))
-print(weekly_sum(raw_data))
 ```
 
+## Visualising total cases to date in European countries
+
+To get started I'm going to create a simple visualisation showing the number
+of total cases in European countries. Nothing original, fancy, or particularly
+useful by itself but it will help me to start developing an understanding of
+the data.
+
+```{r visualising-total-cases}
+library("dplyr")
+
+typed_data %>%
+  filter(continent == "Europe") %>%
+  location_sum() %>%
+  select(location, total_cases) %>%
+  ggplot() +
+  geom_col(
+    mapping = aes(
+      x=reorder(location, total_cases),
+      y=total_cases,
+    ),
+  ) +
+  apply_project_theme() +
+  theme(
+    axis.text.x = element_text(angle = 70, hjust=1),
+  ) +
+  labs(
+    title="Total cases in Europe to date",
+    x="Location",
+    y="Total ccases",
+  )
+
+# TODO: Fill with nice color
+# TODO: Use non-scientific notation
+# TODO: More readable x-axis
+
+save_plot("total-european-cases-to-date.jpeg")
+```
