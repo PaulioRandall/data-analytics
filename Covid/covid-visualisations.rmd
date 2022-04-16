@@ -16,9 +16,7 @@ ggplot, ggmap, and other Grammar of Graphics based tools.
 
 Questions:
 
-1. I want to go on holiday in Europe but want the best chance of avoiding
-Covid. Which European countries should I consider and which ones should I
-avoid?
+1. Does population density correlate with Covid spread within a country?
 
 ## Data source
 
@@ -60,6 +58,13 @@ and avoid unnecessarily repeating myself.
 
 ```{r utility-functions}
 
+ONE_NANO <- 1e-9
+ONE_MILLION <- 1e6
+ONE_HUNDRED_MILLION <- 1e8
+ONE_BILLION <- 1e9
+
+thin_line_style = element_line(colour = "gray", size = 0.2)
+
 apply_data_types <- function(data) {
   r <- data %>%
     mutate(
@@ -86,8 +91,9 @@ apply_project_theme <- function() {
   
   t <- theme_classic() +
     theme(
-      # Remove classic styling
-      axis.line =  element_blank(),
+      # Remove axis lines
+      axis.line = element_blank(),
+      axis.ticks = element_blank(),
       
       # Remove legend
       legend.position="none",
@@ -356,6 +362,8 @@ weekly_sum <- function(data) {
     
    return (r)
 }
+
+print(weekly_sum(typed_data))
 ```
 
 ## Visualising total cases to date in European countries
@@ -368,26 +376,21 @@ useful by itself but got to start from pillars of strength.
 library("dplyr")
 library("scales")
 
-# TODO: Move to utility snippet
-ONE_NANO <- 1e-9
-ONE_MILLION <- 1e6
-ONE_HUNDRED_MILLION <- 1e8
-ONE_BILLION <- 1e9
+# TODO: Delete? Keep for reference?
 unit_fmt_billions = unit_format(unit = "B", scale = ONE_NANO)
-minor_element_line = element_line(colour = "gray", size = 0.2)
 
 typed_data %>%
   filter(continent == "Europe") %>%
   location_sum() %>%
   select(location, total_cases) %>%
   filter(total_cases > ONE_HUNDRED_MILLION) %>%
-  mutate(total_cases_billion = total_cases / ONE_BILLION) %>%
+  mutate(total_cases_in_billions = total_cases / ONE_BILLION) %>%
   ggplot() +
   geom_col(
     mapping = aes(
-      x=reorder(location, desc(total_cases_billion)),
-      y=total_cases_billion,
-      fill=total_cases_billion,
+      x=reorder(location, desc(total_cases_in_billions)),
+      y=total_cases_in_billions,
+      fill=total_cases_in_billions,
     ),
   ) +
   scale_fill_gradient(low = "blue", high = "red") +
@@ -399,15 +402,73 @@ typed_data %>%
       margin = margin(0,0,0,0),
       colour = "black",
     ),
-    axis.ticks.x = element_blank(),
-    axis.ticks.y = element_blank(),
     axis.title.x = element_blank(),
-    panel.grid.major.y = minor_element_line,
+    panel.grid.major.y = thin_line_style,
   ) +
   labs(
-    title="Cumulative Covid cases in Europe where total > 100 Million",
+    title="Cumulative Covid cases in European countries",
+    subtitle="Where total cases > 100 Million",
     y="Total cases (US Billions)",
   )
 
-save_plot("cumulative-european-covid-cases.jpeg")
+save_plot("cumulative-covid-cases-in-european-countries.jpeg")
+```
+
+## Does population density correlate with Covid spread?
+
+This visualisation aims to identify if population density is correlated with
+Covid spread. Note that this does not mean that population density is a key
+factor in transmission rates; although, it probably is. I will use new Covid
+cases per week as a measure of spread without attempting to account for other
+variables.
+
+```{r visualising-total-cases}
+library("dplyr")
+library("scales")
+
+# TODO: Start again!
+
+typed_data %>%
+  weekly_sum() %>%
+  select(population_density, new_cases_per_million) %>%
+  filter(
+    year == 2021,
+    week == 1,
+    new_cases_per_million > 0,
+    new_cases_per_million < ONE_HUNDRED_MILLION,
+    population_density > 0,
+    population_density < (ONE_MILLION * 0.75),
+  ) %>%
+  mutate(
+    new_cases_per_million_in_millions = new_cases_per_million / ONE_MILLION,
+  ) %>%
+  print() %>%
+  ggplot() +
+  geom_point(
+    mapping = aes(
+      y = new_cases_per_million_in_millions,
+      x = population_density,
+    ),
+  ) +
+  geom_smooth(
+    mapping = aes(
+      x = population_density,
+      y = new_cases_per_million_in_millions,
+    ),
+  ) +
+  scale_x_continuous(labels = unit_format(unit = "")) +
+  scale_y_continuous(labels = unit_format(unit = "M")) +
+  apply_project_theme() +
+  theme(
+    panel.grid.major.y = thin_line_style,
+  ) +
+  labs(
+    title="Does population density correlate with Covid spread?",
+    subtitle="Where population density < 750,000",
+    y="New cases (per million)",
+    x="Population density (People per km2)",
+  )
+
+save_plot("does-population-density-correlate-with-covid-spread.jpeg")
+
 ```
