@@ -371,8 +371,8 @@ library("scales")
 # TODO: Move to utility snippet
 ONE_NANO <- 1e-9
 ONE_MILLION <- 1e6
-ONE_HUNDRED_MILLION <- ONE_MILLION * 100
-
+ONE_HUNDRED_MILLION <- 1e8
+ONE_BILLION <- 1e9
 unit_fmt_billions = unit_format(unit = "B", scale = ONE_NANO)
 minor_element_line = element_line(colour = "gray", size = 0.2)
 
@@ -381,29 +381,33 @@ typed_data %>%
   location_sum() %>%
   select(location, total_cases) %>%
   filter(total_cases > ONE_HUNDRED_MILLION) %>%
+  mutate(total_cases_billion = total_cases / ONE_BILLION) %>%
   ggplot() +
   geom_col(
     mapping = aes(
-      x=reorder(location, desc(total_cases)),
-      y=total_cases,
-      fill=total_cases,
+      x=reorder(location, desc(total_cases_billion)),
+      y=total_cases_billion,
+      fill=total_cases_billion,
     ),
   ) +
-  scale_y_continuous(labels = unit_fmt_billions) +
   scale_fill_gradient(low = "blue", high = "red") +
   apply_project_theme() +
   theme(
-    axis.text.x = element_text(angle = 70, hjust=1),
+    axis.text.x = element_text(
+      angle = 70,
+      hjust = 1,
+      margin = margin(0,0,0,0),
+      colour = "black",
+    ),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.title.x = element_blank(),
     panel.grid.major.y = minor_element_line,
   ) +
   labs(
     title="Cumulative Covid cases in Europe where total > 100 Million",
-    x="Countries",
-    y="Total cases (Billions)",
+    y="Total cases (US Billions)",
   )
-
-# TODO: Use integer on Y axis
-# TODO: Put countries above their bar
 
 save_plot("cumulative-european-covid-cases.jpeg")
 ```
