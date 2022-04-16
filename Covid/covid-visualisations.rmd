@@ -16,7 +16,9 @@ ggplot, ggmap, and other Grammar of Graphics based tools.
 
 Questions:
 
-- I want to go on holiday in Europe but want the best chance of avoiding Covid. Which European countries should I consider and which ones should I avoid?
+1. I want to go on holiday in Europe but want the best chance of avoiding
+Covid. Which European countries should I consider and which ones should I
+avoid?
 
 ## Data source
 
@@ -51,11 +53,13 @@ install.packages("lubridate")
 library("tidyverse")
 ```
 
-## Utility functions
+## Constants and utility functions
 
-Here I am just defining functions to avoid unnecessarily repeating myself.
+Here I am just defining constants and utility functions to aid readability
+and avoid unnecessarily repeating myself.
 
 ```{r utility-functions}
+
 apply_data_types <- function(data) {
   r <- data %>%
     mutate(
@@ -79,14 +83,20 @@ save_plot <- function(filename) {
 }
 
 apply_project_theme <- function() {
-  t <- theme(
-    # Remove legend
-    legend.position="none",
-    # Center titles & captions
-    plot.title = element_text(hjust = 0.5),
-    plot.subtitle = element_text(hjust = 0.5),
-    plot.caption = element_text(hjust = 0.5),
-  )
+  
+  t <- theme_classic() +
+    theme(
+      # Remove classic styling
+      axis.line =  element_blank(),
+      
+      # Remove legend
+      legend.position="none",
+      
+      # Center titles & captions
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5),
+      plot.caption = element_text(hjust = 0.5),
+    )
   
   return (t)
 }
@@ -352,36 +362,48 @@ weekly_sum <- function(data) {
 
 To get started I'm going to create a simple visualisation showing the number
 of total cases in European countries. Nothing original, fancy, or particularly
-useful by itself but it will help me to start developing an understanding of
-the data.
+useful by itself but got to start from pillars of strength.
 
 ```{r visualising-total-cases}
 library("dplyr")
+library("scales")
+
+# TODO: Move to utility snippet
+ONE_NANO <- 1e-9
+ONE_MILLION <- 1e6
+ONE_HUNDRED_MILLION <- ONE_MILLION * 100
+
+unit_fmt_billions = unit_format(unit = "B", scale = ONE_NANO)
+minor_element_line = element_line(colour = "gray", size = 0.2)
 
 typed_data %>%
   filter(continent == "Europe") %>%
   location_sum() %>%
   select(location, total_cases) %>%
+  filter(total_cases > ONE_HUNDRED_MILLION) %>%
   ggplot() +
   geom_col(
     mapping = aes(
-      x=reorder(location, total_cases),
+      x=reorder(location, desc(total_cases)),
       y=total_cases,
+      fill=total_cases,
     ),
   ) +
+  scale_y_continuous(labels = unit_fmt_billions) +
+  scale_fill_gradient(low = "blue", high = "red") +
   apply_project_theme() +
   theme(
     axis.text.x = element_text(angle = 70, hjust=1),
+    panel.grid.major.y = minor_element_line,
   ) +
   labs(
-    title="Total cases in Europe to date",
-    x="Location",
-    y="Total ccases",
+    title="Cumulative Covid cases in Europe where total > 100 Million",
+    x="Countries",
+    y="Total cases (Billions)",
   )
 
-# TODO: Fill with nice color
-# TODO: Use non-scientific notation
-# TODO: More readable x-axis
+# TODO: Use integer on Y axis
+# TODO: Put countries above their bar
 
-save_plot("total-european-cases-to-date.jpeg")
+save_plot("cumulative-european-covid-cases.jpeg")
 ```
