@@ -14,10 +14,6 @@ knitr::opts_chunk$set(echo = TRUE)
 I've started this project so I can learn more about visualizing data in R using
 ggplot, ggmap, and other Grammar of Graphics based tools.
 
-Questions:
-
-1. Does population density correlate with Covid spread within a country?
-
 ## Data source
 
 Data download link: https://covid.ourworldindata.org/data/owid-covid-data.csv
@@ -43,7 +39,8 @@ writing readable and iconic code.
 ```{r packages}
 install.packages("tidyverse")
 install.packages("lubridate")
-#install.packages("ggplot2")
+install.packages("zoo")
+install.packages("ggplot2")
 #install.packages("ggmap")
 #install.packages("maps")
 #install.packages("viridis")
@@ -59,6 +56,9 @@ and avoid unnecessarily repeating myself.
 ```{r utility-functions}
 
 ONE_NANO <- 1e-9
+ONE_HUNDRED_MICRO <- 1e-5
+
+ONE_HUNDRED_THOUSAND <- 1e5
 ONE_MILLION <- 1e6
 ONE_HUNDRED_MILLION <- 1e8
 ONE_BILLION <- 1e9
@@ -95,6 +95,9 @@ apply_project_theme <- function() {
       axis.line = element_blank(),
       axis.ticks = element_blank(),
       
+      # Minimal lines on Y axis
+      panel.grid.major.y = thin_line_style,
+      
       # Remove legend
       legend.position="none",
       
@@ -105,6 +108,16 @@ apply_project_theme <- function() {
     )
   
   return (t)
+}
+
+remove_x_axis_theme = function() {
+  r <- theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.line.x = element_blank(),
+  )
+
+  return (r)
 }
 
 # get_distinct_col identifies all unique values in a specific column
@@ -342,7 +355,7 @@ location_sum <- function(data) {
 
 yearly_sum <- function(data) {
   r <- data %>%
-    mutate(year = year(date)) %>% 
+    mutate(year = year(date)) %>%
     group_by(location, year) %>%
     summarise_at(summable_cols, sum, na.rm = TRUE) %>%
     ungroup() %>%
@@ -351,19 +364,26 @@ yearly_sum <- function(data) {
    return (r)
 }
 
+first_day_of_week = function(date) {
+  return (as.Date(cut(date, "week")))
+}
+
 weekly_sum <- function(data) {
+  start.on.monday = TRUE
+  
   r <- data %>%
-    mutate(year = year(date)) %>% 
-    mutate(week = week(date)) %>% 
-    group_by(location, year, week) %>%
+    mutate(week_start = first_day_of_week(date)) %>%
+    group_by(location, week_start) %>%
     summarise_at(summable_cols, sum, na.rm = TRUE) %>%
     ungroup() %>%
-    arrange(location, year, week)
+    mutate(year = year(week_start)) %>% 
+    mutate(week = week(week_start)) %>%  
+    arrange(location, week_start)
     
    return (r)
 }
 
-print(weekly_sum(typed_data))
+#print(weekly_sum(typed_data))
 ```
 
 ## Visualising total cases to date in European countries
@@ -414,61 +434,59 @@ typed_data %>%
 save_plot("cumulative-covid-cases-in-european-countries.jpeg")
 ```
 
-## Does population density correlate with Covid spread?
-
-This visualisation aims to identify if population density is correlated with
-Covid spread. Note that this does not mean that population density is a key
-factor in transmission rates; although, it probably is. I will use new Covid
-cases per week as a measure of spread without attempting to account for other
-variables.
+## UK Covid cases peeked during the winter of 2022
 
 ```{r visualising-total-cases}
 library("dplyr")
+library("ggplot2")
 library("scales")
+library("zoo")
 
-# TODO: Start again!
-
-typed_data %>%
+plot_data <- typed_data %>%
   weekly_sum() %>%
-  select(population_density, new_cases_per_million) %>%
   filter(
-    year == 2021,
-    week == 1,
-    new_cases_per_million > 0,
-    new_cases_per_million < ONE_HUNDRED_MILLION,
-    population_density > 0,
-    population_density < (ONE_MILLION * 0.75),
+    location == "United Kingdom",
   ) %>%
+  select(
+    week_start,
+    new_cases,
+    hosp_patients,
+    icu_patients,
+  ) %>%
+  # mutate(
+  #   year_week = str_pad(week, 2, pad = "0"),
+  #   year_week = paste(year, year_week, sep="-"),
+  # ) %>%
   mutate(
-    new_cases_per_million_in_millions = new_cases_per_million / ONE_MILLION,
+    new_cases_in_millions = new_cases / ONE_MILLION,
+    hosp_patients_in_millions = hosp_patients / ONE_MILLION,
   ) %>%
-  print() %>%
-  ggplot() +
-  geom_point(
-    mapping = aes(
-      y = new_cases_per_million_in_millions,
-      x = population_density,
-    ),
-  ) +
-  geom_smooth(
-    mapping = aes(
-      x = population_density,
-      y = new_cases_per_million_in_millions,
-    ),
-  ) +
-  scale_x_continuous(labels = unit_format(unit = "")) +
-  scale_y_continuous(labels = unit_format(unit = "M")) +
-  apply_project_theme() +
-  theme(
-    panel.grid.major.y = thin_line_style,
-  ) +
-  labs(
-    title="Does population density correlate with Covid spread?",
-    subtitle="Where population density < 750,000",
-    y="New cases (per million)",
-    x="Population density (People per km2)",
-  )
+  arrange(week_start) %>%
+  print()
 
-save_plot("does-population-density-correlate-with-covid-spread.jpeg")
+ggplot(
+  data = plot_data,
+  mapping = aes(
+    x = week_start,
+    width = 8,
+  ),
+) +
+geom_col(
+  mapping = aes(
+    y = new_cases_in_millions,
+    fill = new_cases_in_millions,
+  ),
+) +
+scale_fill_gradient(low = "blue", high = "orange") +
+scale_x_date(date_labels = "%Y", date_breaks = "1 year") +
+apply_project_theme() +
+theme(
+  axis.title.x = element_blank(),
+) +
+labs(
+  title="UK reported Covid cases peeked during the winter of 2022",
+  y="New cases in the UK (Millions)",
+)
 
+save_plot("weekly-new-cases-in-the-uk.jpeg")
 ```
